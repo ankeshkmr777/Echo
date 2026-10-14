@@ -1,9 +1,9 @@
 package expo.modules.blemesh;
 
-import java.util.Base64;
+import android.util.Base64;
 import java.util.UUID;
 
-import javax.naming.Context;
+import android.content.Context;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
@@ -21,6 +21,16 @@ import android.bluetooth.le.AdvertiseSettings;
 import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.os.ParcelUuid;
 import android.util.Log;
+
+public interface OnDataReceivedListener {
+    void onDataReceived(String peerAddress, String base64Bytes);
+}
+
+private OnDataReceivedListener datalistener;
+
+public void setOnDataReceivedListener(OnDataReceivedListener listener) {
+    this.datalistener = listener;
+}
 
 public class PeripheralManager {
     private static final String TAG = "PeripheralManager";
@@ -78,7 +88,10 @@ public class PeripheralManager {
                 if (responseNeeded) {
                     gattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
                 }
-                
+
+                if (datalistener != null) {
+                    dataListener.onDataReceived(device.getAddress(), base64Bytes);
+                }
                 // (Next phase: Bridge this base64Bytes string up to the Kotlin 'onRawData' event for Dev 4's UI)
             }
         }

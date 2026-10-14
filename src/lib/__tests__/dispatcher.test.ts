@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 import { EventEmitter } from 'events';
-import { EnvelopeDispatcher, Envelope, ITransport } from './dispatcher';
+import { EnvelopeDispatcher, Envelope, ITransport } from '../dispatcher';
 
 // ==========================================
 // 1. THE FAKE RADIO (Mocking Dev 1)

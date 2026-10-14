@@ -12,7 +12,16 @@ class BleMeshModule : Module() {
   }
   
   private val peripheralManager by lazy {
-    appContext.reactContext?.let { PeripheralManager(it) }
+    appContext.reactContext?.let {
+        val mgr = PeripheralManager(it)
+        mgr.setOnDataReceivedListener { peerAddress, base64Bytes ->
+            this@BleMeshModule.sendEvent("onRawData", mapOf(
+                "peerId" to peerAddress,
+                "base64Bytes" to base64Bytes
+            ))
+        }
+        mgr
+     }
   }
 
   override fun definition() = ModuleDefinition {

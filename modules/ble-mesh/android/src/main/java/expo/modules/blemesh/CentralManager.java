@@ -1,11 +1,11 @@
 package expo.modules.blemesh;
 
 import java.util.ArrayList;
-import java.util.Base64;
+import android.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
-import javax.naming.Context;
+import android.content.Context;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;

@@ -3,8 +3,9 @@ import { NativeModule, requireNativeModule } from 'expo';
 import { BleMeshModuleEvents } from './BleMesh.types';
 
 declare class BleMeshModule extends NativeModule<BleMeshModuleEvents> {
-  hello(): string;
-  setValueAsync(value: string): Promise<void>;
+  startRadio(): void;
+  stopRadio(): void;
+  writeRaw(peerId: string, base64Bytes: string): void;
 }
 
 export default requireNativeModule<BleMeshModule>('BleMesh');
