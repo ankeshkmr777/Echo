@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest';
 import { EventEmitter } from 'events';
-import { EnvelopeDispatcher, Envelope, ITransport } from '../dispatcher';
+import { EnvelopeDispatcher, ITransport } from '../dispatcher';
+import { packEnvelope, EnvelopeType } from '../protocol';
 
 // ==========================================
 // 1. THE FAKE RADIO (Mocking Dev 1)
@@ -11,17 +12,17 @@ class MockTransport implements ITransport {
 
   constructor(private sharedAirwaves: EventEmitter, private myChannel: string) {
     // Listen to the shared airwaves. If a message comes on my channel, play it on my speaker.
-    this.sharedAirwaves.on(this.myChannel, (data) => this.emitter.emit('payload', data));
+    this.sharedAirwaves.on(this.myChannel, (data: Uint8Array) => this.emitter.emit('payload', data));
   }
 
   // When our Dispatcher calls send(), broadcast it to the other person's channel
-  send(payload: string): void {
+  send(payload: Uint8Array): void {
     const destination = this.myChannel === 'to_bob' ? 'to_alice' : 'to_bob';
     this.sharedAirwaves.emit(destination, payload);
   }
 
   // When our Dispatcher calls on(), connect it to the radio's speaker
-  on(event: 'payload', callback: (data: string) => void): void {
+  on(event: 'payload', callback: (data: Uint8Array) => void): void {
     this.emitter.on(event, callback);
   }
 }
@@ -35,7 +36,7 @@ test('Dispatcher sends envelope from Alice to Bob and drops duplicates', () => {
 
   // 2. Set up a list to act as Bob's UI (Dev 4). 
   // We will push messages here to prove they successfully passed Bob's bouncer.
-  const bobDelivered: Envelope[] = [];
+  const bobDelivered: Uint8Array[] = [];
 
   // 3. Create Alice and Bob's Dispatchers, plugging in their fake radios
   const aliceDispatcher = new EnvelopeDispatcher(
@@ -49,11 +50,10 @@ test('Dispatcher sends envelope from Alice to Bob and drops duplicates', () => {
   );
 
   // 4. Create a dummy message
-  const sampleEnvelope: Envelope = { 
-    id: 'env_abc123', 
-    payload: 'secret_encrypted_data', 
-    hopCount: 0 
-  };
+  const sampleEnvelope = packEnvelope({
+    type: EnvelopeType.Sealed,
+    payload: new TextEncoder().encode('secret_encrypted_data'),
+  });
 
   // --- THE ACTION ---
 
@@ -63,9 +63,8 @@ test('Dispatcher sends envelope from Alice to Bob and drops duplicates', () => {
   // B. JUnit style assertion: Verify Bob received it exactly once
   expect(bobDelivered.length).toBe(1);
 
-  // C. Simulate a network glitch: Bob's radio receives the exact same raw string again
-  const rawString = JSON.stringify(sampleEnvelope);
-  const acceptedAgain = bobDispatcher.handleIncoming(rawString);
+  // C. Simulate a network glitch: Bob's radio receives the exact same raw envelope again
+  const acceptedAgain = bobDispatcher.handleIncoming(sampleEnvelope);
 
   // D. Verify the Bouncer did its job!
   expect(acceptedAgain).toBe(false);   // The method should return false (dropped)
