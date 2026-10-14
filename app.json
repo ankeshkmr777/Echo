@@ -43,6 +43,7 @@
       ],
       "expo-sqlite",
       "react-native-ble-plx"
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
