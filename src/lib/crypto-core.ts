@@ -3,10 +3,12 @@ import {ed25519, x25519} from "@noble/curves/ed25519.js";
 import {sha256} from "@noble/hashes/sha2.js";
 import {hkdf} from "@noble/hashes/hkdf.js";
 import {xchacha20poly1305} from "@noble/ciphers/chacha.js";
+import {bytesToHex, hexToBytes} from "@noble/hashes/utils.js";
+import {bytesToBase64, base64ToBytes} from "./base64";
 
-const SEED_STORAGE_KEY = 'chitchatchit_identity_seed_v1';
-const HKDF_INFO_IDENTITY = new TextEncoder().encode('chitchatchit/v1/x25519');
-const HKDF_INFO_DM = new TextEncoder().encode('chitchatchit/v1/dm');
+const SEED_STORAGE_KEY = 'echo_identity_seed_v1';
+const HKDF_INFO_IDENTITY = new TextEncoder().encode('echo/v1/x25519');
+const HKDF_INFO_DM = new TextEncoder().encode('echo/v1/dm');
 
 export interface IdentityKeyPair {
     seed: Uint8Array;
@@ -28,10 +30,10 @@ export async function getOrCreateIdentity() : Promise<IdentityKeyPair> {
     let seed: Uint8Array;
 
     if (seedHex) {
-        seed = Uint8Array.from(Buffer.from(seedHex, 'hex'));
+        seed = hexToBytes(seedHex);
     } else {
         seed = crypto.getRandomValues(new Uint8Array(32));
-        await SecureStore.setItemAsync(SEED_STORAGE_KEY, Buffer.from(seed).toString('hex'), {
+        await SecureStore.setItemAsync(SEED_STORAGE_KEY, bytesToHex(seed), {
             keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
         });
     }
@@ -45,13 +47,13 @@ export async function getOrCreateIdentity() : Promise<IdentityKeyPair> {
     const combined = new Uint8Array(64);
     combined.set(edPublic, 0);
     combined.set(xPublic, 32);
-    const publicId = Buffer.from(combined).toString('base64');
+    const publicId = bytesToBase64(combined);
 
     return {seed, edPublic, edSecret, xPublic, xSecret, publicId};
 }
 
 export function parsePublicId(publicId: string) : { edPublic: Uint8Array; xPublic: Uint8Array } {
-    const buf = Buffer.from(publicId, 'base64');
+    const buf = base64ToBytes(publicId);
     if (buf.length !== 64) {
         throw new Error('Invalid public Id');
     }
@@ -136,7 +138,7 @@ export function openDirectMessage(params: {
 
     const body = new TextDecoder().decode(bodyBytes);
     return {
-        senderPublicId: Buffer.from(senderEdPublic).toString('hex'),
+        senderPublicId: bytesToHex(senderEdPublic),
         senderEdPublic,
         body,
     };

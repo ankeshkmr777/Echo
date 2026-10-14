@@ -7,7 +7,7 @@ import {
     MAX_ALLOWED_HOPS,
 } from "../protocol";
 
-describe('Chitchatchit Wire Protocol', () => {
+describe('Echo Wire Protocol', () => {
     it('correctly serializes and deserializes a Sealed envelope with bucket padding', () => {
         const rawData = new TextEncoder().encode('Encrypted ciphertext blob goes here');
 

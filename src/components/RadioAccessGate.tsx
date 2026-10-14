@@ -30,11 +30,14 @@ export default function RadioAccessGate({ children }: RadioAccessGateProps) {
                 array of those permission strings and actually sends the request to the Android OS.
                 //Requesting multiple permissions from the Android OS
                 */
-                const granted = await PermissionsAndroid.requestMultiple([
+                const permissionsToRequest = [
                     PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
                     PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+                    PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
                     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-                ]);
+                ];
+
+                const granted = await PermissionsAndroid.requestMultiple(permissionsToRequest);
 
                 // Checking if all required permissions were granted
                 /*When the user clicks "Allow" or "Deny" on the Android

@@ -1,5 +1,5 @@
 export type BleMeshModuleEvents = {
-  onChange: (params: ChangeEventPayload) => void;
+  onChange: (params: { peerId: string; base64Bytes: string }) => void;
 };
 
 export type ChangeEventPayload = {
