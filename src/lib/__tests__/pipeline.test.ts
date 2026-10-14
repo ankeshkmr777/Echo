@@ -21,7 +21,7 @@ function createMockIdentity(): IdentityKeyPair {
     return { seed, edPublic, edSecret: seed, xPublic, xSecret, publicId: 'mock' };
 }
 
-describe('Chitchatchit Full Data-to-Byte Pipeline (End-to-End)', () => {
+describe('Echo Full Data-to-Byte Pipeline (End-to-End)', () => {
     it('seals, frames, slices, reassembles, un-frames, and decrypts successfully',
         () => {
             const alice = createMockIdentity();

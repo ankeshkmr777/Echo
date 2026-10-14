@@ -95,7 +95,7 @@ export function unpackEnvelope(rawBytes: Uint8Array) : UnpackedEnvelope {
     }
 
     if (rawBytes[0] !== MAGIC_BYTE_0 || rawBytes[1] !== MAGIC_BYTE_1) {
-        throw new Error('Invalid magic bytes: not a Chitchatchit envelope');
+        throw new Error('Invalid magic bytes: not an Echo envelope');
     }
 
     if (rawBytes[2] !== PROTOCOL_VERSION) {

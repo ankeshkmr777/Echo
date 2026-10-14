@@ -6,9 +6,9 @@ import {xchacha20poly1305} from "@noble/ciphers/chacha.js";
 import {bytesToHex, hexToBytes} from "@noble/hashes/utils.js";
 import {bytesToBase64, base64ToBytes} from "./base64";
 
-const SEED_STORAGE_KEY = 'chitchatchit_identity_seed_v1';
-const HKDF_INFO_IDENTITY = new TextEncoder().encode('chitchatchit/v1/x25519');
-const HKDF_INFO_DM = new TextEncoder().encode('chitchatchit/v1/dm');
+const SEED_STORAGE_KEY = 'echo_identity_seed_v1';
+const HKDF_INFO_IDENTITY = new TextEncoder().encode('echo/v1/x25519');
+const HKDF_INFO_DM = new TextEncoder().encode('echo/v1/dm');
 
 export interface IdentityKeyPair {
     seed: Uint8Array;

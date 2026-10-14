@@ -26,9 +26,9 @@ import android.util.Log;
 
 public class CentralManager {
     private static final String TAG = "CentralManager";
-    // The specific UUID for ChitChatChit from your architecture doc
+    // The specific UUID for Echo from your architecture doc
     private static final UUID SERVICE_UUID = UUID.fromString("7B3C1A80-9F42-4E17-9A6D-2C5E8B1F0D31");
-    // The specific "mailbox" inside ChitChatChit for sending messages
+    // The specific "mailbox" inside Echo for sending messages
     private static final UUID CHARACTERISTIC_UUID = UUID.fromString("8C4D2B91-0E53-5F28-AB7E-3D6F9C2E1E42");
     
     private BluetoothGattCharacteristic dataPipe;
@@ -88,7 +88,7 @@ public class CentralManager {
             super.onServicesDiscovered(gatt, status);
             
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                // 1. Find the ChitChatChit building
+                // 1. Find the Echo building
                 BluetoothGattService service = gatt.getService(SERVICE_UUID);
                 
                 if (service != null) {
@@ -102,7 +102,7 @@ public class CentralManager {
                         Log.e(TAG, "Service found, but data pipe is missing.");
                     }
                 } else {
-                    Log.e(TAG, "ChitChatChit service not found on this device.");
+                    Log.e(TAG, "Echo service not found on this device.");
                 }
             } else {
                 Log.w(TAG, "Service discovery failed with status: " + status);
@@ -129,7 +129,7 @@ public class CentralManager {
         bluetoothLeScanner = bluetoothAdapter.getBluetoothLeScanner();
         if (bluetoothLeScanner == null) return;
 
-        // Filter so we ONLY see other ChitChatChit phones, not random smartwatches
+        // Filter so we ONLY see other Echo phones, not random smartwatches
         ScanFilter filter = new ScanFilter.Builder()
                 .setServiceUuid(new ParcelUuid(SERVICE_UUID))
                 .build();

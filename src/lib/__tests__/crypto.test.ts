@@ -18,7 +18,7 @@ function createMockIdentity(): IdentityKeyPair {
     return { seed, edPublic, edSecret: seed, xPublic, xSecret, publicId: 'mock' };
 }
 
-describe('Chitchatchit CryptoCore', () => {
+describe('Echo CryptoCore', () => {
     it('encrypts and decrypts a direct message successfully', () => {
         const alice = createMockIdentity();
         const bob = createMockIdentity();

@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { sliceIntoChunks, ChunkReassembler, CHUNK_HEADER_SIZE } from '../chunker';
 
-describe('Chitchatchit Chunker & Reassembler', () => {
+describe('Echo Chunker & Reassembler', () => {
     it('handles a single chunk message immediately without delay', () => {
         const reassembler = new ChunkReassembler();
         const data = new TextEncoder().encode('Short walkie-talkie message');
@@ -37,7 +37,7 @@ describe('Chitchatchit Chunker & Reassembler', () => {
     it('reassembles chunks that arrive out of order (radio jitter)', () => {
         const reassembler = new ChunkReassembler();
         const original = new TextEncoder().encode(
-            'Chitchatchit off-grid packet test string with multiple out-of-order chunks!');
+            'Echo off-grid packet test string with multiple out-of-order chunks!');
 
         const chunks = sliceIntoChunks(original, 24); // Force many small chunks
         expect(chunks.length).toBeGreaterThan(2);
@@ -52,7 +52,7 @@ describe('Chitchatchit Chunker & Reassembler', () => {
 
         expect(assembled).not.toBeNull();
         expect(new TextDecoder().decode(assembled!)).toBe(
-            'Chitchatchit off-grid packet test string with multiple out-of-order chunks!');
+            'Echo off-grid packet test string with multiple out-of-order chunks!');
     });
 
     it('sweeps and purges abandoned assemblies after timeout', () => {
