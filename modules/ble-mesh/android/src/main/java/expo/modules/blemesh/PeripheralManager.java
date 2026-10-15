@@ -22,10 +22,6 @@ import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.os.ParcelUuid;
 import android.util.Log;
 
-public interface OnDataReceivedListener {
-    void onDataReceived(String peerAddress, String base64Bytes);
-}
-
 public class PeripheralManager {
     private static final String TAG = "PeripheralManager";
     // The exact same "secret password" used in CentralManager
