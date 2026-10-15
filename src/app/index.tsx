@@ -27,15 +27,22 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-    loadMessages();
+    MeshService.initialize().then(() => {
+      loadMessages();
+    })
 
-    //  Check the local database every 2 seconds for new incoming mesh messages
-    const refreshInterval = setInterval(() => {
+    const unsubscribe = MeshService.subscribe(() => {
+      loadMessages();
+    });
+
+    const interval = setInterval(() => {
       loadMessages();
     }, 2000);
 
-    // Cleanup interval if the user leaves the screen
-    return () => clearInterval(refreshInterval);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   // 2. Handle sending a new message

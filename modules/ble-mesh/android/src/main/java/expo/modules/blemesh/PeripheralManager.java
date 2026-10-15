@@ -1,9 +1,9 @@
 package expo.modules.blemesh;
 
-import java.util.Base64;
+import android.util.Base64;
 import java.util.UUID;
 
-import javax.naming.Context;
+import android.content.Context;
 
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
@@ -22,12 +22,22 @@ import android.bluetooth.le.BluetoothLeAdvertiser;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+public interface OnDataReceivedListener {
+    void onDataReceived(String peerAddress, String base64Bytes);
+}
+
 public class PeripheralManager {
     private static final String TAG = "PeripheralManager";
     // The exact same "secret password" used in CentralManager
     private static final UUID SERVICE_UUID = UUID.fromString("7B3C1A80-9F42-4E17-9A6D-2C5E8B1F0D31");
     // The exact same mailbox UUID used in CentralManager
     private static final UUID CHARACTERISTIC_UUID = UUID.fromString("8C4D2B91-0E53-5F28-AB7E-3D6F9C2E1E42");
+
+    private OnDataReceivedListener dataListener;
+
+    public void setOnDataReceivedListener(OnDataReceivedListener listener) {
+        this.dataListener = listener;
+    }
 
     private Context context;
     private BluetoothAdapter bluetoothAdapter;
@@ -78,7 +88,10 @@ public class PeripheralManager {
                 if (responseNeeded) {
                     gattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset, value);
                 }
-                
+
+                if (dataListener != null) {
+                    dataListener.onDataReceived(device.getAddress(), base64Bytes);
+                }
                 // (Next phase: Bridge this base64Bytes string up to the Kotlin 'onRawData' event for Dev 4's UI)
             }
         }
