@@ -4,46 +4,55 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
 class BleMeshModule : Module() {
-  
-  // 1. Instantiate your Java objects lazily (they only get created when needed)
-  // appContext.reactContext is the "VIP pass" (Context) that your Java constructors require
+
   private val centralManager by lazy {
-    appContext.reactContext?.let { CentralManager(it) }
+    appContext.reactContext?.let { context ->
+      val manager = CentralManager(context)
+      
+      // Kotlin lambda syntax for a single-method interface
+      manager.setListener { peerId ->
+        sendEvent("onDeviceDisconnected", mapOf("peerId" to peerId))
+      }
+      
+      manager
+    }
   }
-  
+
   private val peripheralManager by lazy {
-    appContext.reactContext?.let {
-        val mgr = PeripheralManager(it)
-        mgr.setOnDataReceivedListener { peerAddress, base64Bytes ->
-            this@BleMeshModule.sendEvent("onRawData", mapOf(
-                "peerId" to peerAddress,
-                "base64Bytes" to base64Bytes
-            ))
+    appContext.reactContext?.let { context ->
+      val manager = PeripheralManager(context)
+      
+      // Kotlin object syntax for a multi-method interface
+      manager.setListener(object : PeripheralManager.MeshEventListener {
+        override fun onMessageReceived(base64Bytes: String) {
+          sendEvent("onRawData", mapOf("payload" to base64Bytes))
         }
-        mgr
-     }
+
+        override fun onDeviceDisconnected(peerId: String) {
+          sendEvent("onDeviceDisconnected", mapOf("peerId" to peerId))
+        }
+      })
+      
+      manager
+    }
   }
 
   override fun definition() = ModuleDefinition {
     Name("BleMesh")
 
-    Events("onRawData")
+    Events("onRawData", "onDeviceDisconnected")
 
-    // 2. The JavaScript team calls this to turn on the mesh
     Function("startRadio") {
       centralManager?.startScanning()
       peripheralManager?.startAdvertising()
     }
     
-    // 3. The JavaScript team calls this to turn off the mesh
     Function("stopRadio") {
       centralManager?.stopScanning()
       peripheralManager?.stopAdvertising()
     }
 
-    // 4. We will wire this up in the next phase (GATT Connection)
     Function("writeRaw") { peerId: String, base64Bytes: String ->
-      // The JS side calls this, and we route the payload directly to the Java antenna driver
       centralManager?.writeRawData(base64Bytes)
     }
   }
