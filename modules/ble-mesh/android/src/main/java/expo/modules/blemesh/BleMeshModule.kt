@@ -25,7 +25,7 @@ class BleMeshModule : Module() {
       // Kotlin object syntax for a multi-method interface
       manager.setListener(object : PeripheralManager.MeshEventListener {
         override fun onMessageReceived(base64Bytes: String) {
-          sendEvent("onRawData", mapOf("payload" to base64Bytes))
+          sendEvent("onRawData", mapOf("base64Bytes" to base64Bytes, "payload" to base64Bytes))
         }
 
         override fun onDeviceDisconnected(peerId: String) {

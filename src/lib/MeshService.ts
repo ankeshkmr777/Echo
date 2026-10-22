@@ -103,12 +103,14 @@ class MasterMeshService {
           // Listen for incoming raw Bluetooth data from nearby phones
           BleMeshModule.addListener(
             'onRawData',
-            (evt: { peerId: string; base64Bytes: string }) => {
+            (evt: { peerId?: string; base64Bytes?: string; payload?: string }) => {
+              const b64 = evt.base64Bytes || evt.payload;
+              if (!b64) return;
               if (evt.peerId) {
                 // Mark this phone as a connected Direct Peer in our UI list
                 this.recordPeerSeen(evt.peerId, 'Direct Peer');
               }
-              const raw = base64ToBytes(evt.base64Bytes);
+              const raw = base64ToBytes(b64);
               callback(raw);
             }
           );
