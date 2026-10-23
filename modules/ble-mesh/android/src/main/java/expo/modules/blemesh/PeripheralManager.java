@@ -46,6 +46,7 @@ public class PeripheralManager {
     private BluetoothGattServer gattServer;
 
     public interface MeshEventListener {
+        void onPeerConnected(String peerId);
         void onMessageReceived(String base64Bytes);
         void onDeviceDisconnected(String peerId);
     }
@@ -103,6 +104,7 @@ public class PeripheralManager {
 
         AdvertiseSettings settings = new AdvertiseSettings.Builder()
                 .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
                 .setConnectable(true)
                 .build();
 
@@ -147,7 +149,11 @@ public class PeripheralManager {
         public void onConnectionStateChange(BluetoothDevice device, int status, int newState) {
             super.onConnectionStateChange(device, status, newState);
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.d(TAG, "A Central device connected to our server: " + device.getAddress());
+                String address = device.getAddress();
+                Log.d(TAG, "A Central device connected to our server: " + address);
+                if (listener != null) {
+                    listener.onPeerConnected(address);
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 String address = device.getAddress();
                 Log.d(TAG, "Device disconnected: " + address);
@@ -165,7 +171,7 @@ public class PeripheralManager {
 
             if (CHARACTERISTIC_UUID.equals(characteristic.getUuid())) {
 
-                String base64Bytes = Base64.encodeToString(value, Base64.DEFAULT);
+                String base64Bytes = Base64.encodeToString(value, Base64.NO_WRAP);
                 Log.d(TAG, "Received encrypted message! Base64 Payload: " + base64Bytes);
 
                 if (responseNeeded) {

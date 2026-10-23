@@ -84,9 +84,12 @@ class MasterMeshService {
 
     console.log('[MeshService] Initializing...');
     // 1. Load or create our Ed25519/X25519 identity keys
-    this.identity = await getOrCreateIdentity();
-    console.log('[MeshService] Identity loaded. Public ID:', this.identity.publicId);
-
+    try {
+      this.identity = await getOrCreateIdentity();
+      console.log('[MeshService] Identity loaded. Public ID:', this.identity.publicId);
+    } catch (err) {
+      console.error('[MeshService] Error loading identity:', err);
+    }
     // 2. Connect Dev 3's ITransport interface (send & on) to Dev 1's BleMeshModule
     const transportBridge: ITransport = {
       send: (bytes: Uint8Array) => {
