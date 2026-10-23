@@ -83,16 +83,18 @@ export default function ChatScreen() {
 
   // Function called when the user taps the "Send" button
   const handleSend = async () => {
-    // Do nothing if the text box is empty or only contains spaces
     if (inputText.trim() === '') return;
-
-    // Send the message through MeshService (which saves to SQLite, encrypts with shared room key, and broadcasts over BLE)
-    await MeshService.sendMessage(activePeerId, inputText.trim(), 'me');
-
-    // Clear the input box and refresh the chat list
+    const textToSend = inputText.trim();
     setInputText('');
-    loadMessages();
+
+    try {
+      await MeshService.sendMessage(activePeerId, textToSend, 'me');
+      loadMessages();
+    } catch (err) {
+      console.error('[ChatScreen] Error sending message:', err);
+    }
   };
+
 
   /*
    * Helper function that returns the icon, text label, and colors for the top connection pill.

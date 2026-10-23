@@ -1,3 +1,17 @@
+if (typeof globalThis.crypto === 'undefined') {
+    (globalThis as any).crypto = {};
+}
+if (!globalThis.crypto.getRandomValues) {
+    globalThis.crypto.getRandomValues = function <T extends ArrayBufferView | null>(array: T): T {
+        if (!array) return array;
+        const uint8 = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+        for (let i = 0; i < uint8.length; i++) {
+            const r = (Math.random() * 0x100000000) ^ (Date.now() & 0xffffffff);
+            uint8[i] = (r >> ((i % 4) * 8)) & 0xff;
+        }
+        return array;
+    };
+}
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {ed25519, x25519} from "@noble/curves/ed25519.js";

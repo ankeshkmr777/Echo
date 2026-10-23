@@ -1,3 +1,18 @@
+if (typeof globalThis.crypto === 'undefined') {
+  (globalThis as any).crypto = {};
+}
+if (!globalThis.crypto.getRandomValues) {
+  globalThis.crypto.getRandomValues = function <T extends ArrayBufferView | null>(array: T): T {
+    if (!array) return array;
+    const uint8 = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+    for (let i = 0; i < uint8.length; i++) {
+      const r = (Math.random() * 0x100000000) ^ (Date.now() & 0xffffffff);
+      uint8[i] = (r >> ((i % 4) * 8)) & 0xff;
+    }
+    return array;
+  };
+}
+
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import AppTabs from '@/components/app-tabs';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
