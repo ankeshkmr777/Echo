@@ -21,6 +21,10 @@ class BleMeshModule : Module() {
           sendEvent("onPeerConnected", mapOf("peerId" to peerId))
         }
 
+        override fun onMessageReceived(base64Bytes: String) {
+          sendEvent("onRawData", mapOf("base64Bytes" to base64Bytes, "payload" to base64Bytes))
+        }
+
         override fun onDeviceDisconnected(peerId: String) {
           sendEvent("onDeviceDisconnected", mapOf("peerId" to peerId))
         }
@@ -68,7 +72,18 @@ class BleMeshModule : Module() {
     }
 
     Function("writeRaw") { peerId: String, base64Bytes: String ->
-      centralManager?.writeRawData(base64Bytes)
+      var sent = false
+      if (centralManager?.isConnected == true) {
+        centralManager?.writeRawData(base64Bytes)
+        sent = true
+      }
+      if (peripheralManager?.hasConnectedCentrals() == true) {
+        peripheralManager?.sendData(base64Bytes)
+        sent = true
+      }
+      if (!sent) {
+        centralManager?.writeRawData(base64Bytes)
+      }
     }
   }
 }

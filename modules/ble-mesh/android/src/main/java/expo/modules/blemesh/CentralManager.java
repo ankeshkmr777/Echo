@@ -38,6 +38,7 @@ public class CentralManager {
     public interface CentralEventListener {
         void onPeerDiscovered(String peerId, int rssi);
         void onPeerConnected(String peerId);
+        void onMessageReceived(String base64Bytes);
         void onDeviceDisconnected(String peerId);
     }
     
@@ -45,6 +46,10 @@ public class CentralManager {
 
     public void setListener(CentralEventListener listener) {
         this.connectionListener = listener;
+    }
+
+    public boolean isConnected() {
+        return bluetoothGatt != null && dataPipe != null;
     }
 
     public CentralManager(Context context) {
@@ -57,6 +62,7 @@ public class CentralManager {
 
     @SuppressLint("MissingPermission")
     public void startScanning() {
+        if (isScanning) return;
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled()) {
             Log.e(TAG, "Bluetooth is disabled or not supported");
             return;
@@ -130,8 +136,11 @@ public class CentralManager {
             
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Successfully connected to " + gatt.getDevice().getAddress());
-                gatt.requestMtu(517);
-                
+                boolean requested = gatt.requestMtu(517);
+                if (!requested) {
+                    Log.w(TAG, "requestMtu returned false, discovering services immediately");
+                    gatt.discoverServices();
+                }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 String address = gatt.getDevice().getAddress();
                 Log.d(TAG, "Disconnected from " + address);
@@ -159,10 +168,12 @@ public class CentralManager {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 gatt.discoverServices();
             } else {
-                Log.e(TAG, "MTU expansion failed.");
+                Log.e(TAG, "MTU expansion failed, discovering services anyway.");
+                gatt.discoverServices();
             }
         }
 
+        @SuppressLint("MissingPermission")
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
@@ -175,7 +186,14 @@ public class CentralManager {
                     
                     if (dataPipe != null) {
                         dataPipe.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-                        Log.d(TAG, "Data pipe found! Connection established.");
+                        gatt.setCharacteristicNotification(dataPipe, true);
+                        UUID cccdUuid = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+                        android.bluetooth.BluetoothGattDescriptor descriptor = dataPipe.getDescriptor(cccdUuid);
+                        if (descriptor != null) {
+                            descriptor.setValue(android.bluetooth.BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                            gatt.writeDescriptor(descriptor);
+                        }
+                        Log.d(TAG, "Data pipe found! Connection established and notifications enabled.");
                         
                         if (connectionListener != null) {
                             connectionListener.onPeerConnected(gatt.getDevice().getAddress());
@@ -188,6 +206,31 @@ public class CentralManager {
                 }
             } else {
                 Log.w(TAG, "Service discovery failed with status: " + status);
+            }
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            super.onCharacteristicChanged(gatt, characteristic);
+            byte[] value = characteristic.getValue();
+            if (value != null && value.length > 0) {
+                String base64Bytes = Base64.encodeToString(value, Base64.NO_WRAP);
+                Log.d(TAG, "Received notification data as Central! Base64: " + base64Bytes);
+                if (connectionListener != null) {
+                    connectionListener.onMessageReceived(base64Bytes);
+                }
+            }
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, byte[] value) {
+            super.onCharacteristicChanged(gatt, characteristic, value);
+            if (value != null && value.length > 0) {
+                String base64Bytes = Base64.encodeToString(value, Base64.NO_WRAP);
+                Log.d(TAG, "Received notification data as Central (Tiramisu)! Base64: " + base64Bytes);
+                if (connectionListener != null) {
+                    connectionListener.onMessageReceived(base64Bytes);
+                }
             }
         }
     };

@@ -48,13 +48,17 @@ export default function ChatScreen() {
    * Wrapped in useCallback so React keeps the same function reference unless activePeerId changes.
    */
   const loadMessages = useCallback(async () => {
-    // Fetch all messages for this room/peer from SQLite (ordered newest first)
-    const storedMessages = await getMessagesForPeer(activePeerId);
-    setMessages(storedMessages);
-
-    // Directly read the current radio state and discovered peer count from MeshService (added in Step 1)
-    setRadioState(MeshService.getRadioStatus());
-    setPeerCount(MeshService.getDiscoveredPeers().length);
+    try {
+      // Fetch all messages for this room/peer from SQLite (ordered newest first)
+      const storedMessages = await getMessagesForPeer(activePeerId);
+      setMessages(storedMessages);
+    } catch (err) {
+      console.warn('[ChatScreen] Error loading messages from SQLite:', err);
+    } finally {
+      // Directly read the current radio state and discovered peer count from MeshService
+      setRadioState(MeshService.getRadioStatus());
+      setPeerCount(MeshService.getDiscoveredPeers().length);
+    }
   }, [activePeerId]);
 
   // useEffect runs when the screen opens to start MeshService and keep messages updated

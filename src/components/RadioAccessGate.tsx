@@ -30,48 +30,57 @@ export default function RadioAccessGate({ children }: RadioAccessGateProps) {
 
     if (Platform.OS === 'android') {
       try {
-        /*
-         * PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN is just a string. It
-         * is a label pointing to the specific Android system permission
-         * android.permission.BLUETOOTH_SCAN. It does not ask the user anything by itself.
-         *
-         * PermissionsAndroid.requestMultiple([...]) is the active function. It takes an
-         * array of those permission strings and actually sends the request to the Android OS.
-         * // Requesting multiple permissions from the Android OS
-         */
-        const permissionsToRequest = [
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
-          PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        ];
+        const apiLevel = typeof Platform.Version === 'number' ? Platform.Version : parseInt(String(Platform.Version), 10);
+        const isApi31OrHigher = apiLevel >= 31;
 
-        const granted = await PermissionsAndroid.requestMultiple(permissionsToRequest);
+        if (isApi31OrHigher) {
+          const hasScan = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN);
+          const hasConnect = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT);
+          if (hasScan && hasConnect) {
+            setIsGranted(true);
+            setIsChecking(false);
+            return;
+          }
 
-        // Checking if all required permissions were granted
-        /*
-         * When the user clicks "Allow" or "Deny" on the Android
-         * popup, requestMultiple returns a string representing their
-         * choice (e.g., "granted", "denied", or "never_ask_again").
-         * PermissionsAndroid.RESULTS.GRANTED is simply the official
-         * constant for the string "granted". Our code checks if the
-         * response we got back matches this constant to ensure the user
-         * actually pressed "Allow".
-         */
-        const allGranted =
-          granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
-          granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] ===
-            PermissionsAndroid.RESULTS.GRANTED;
+          const granted = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          ]);
 
-        if (allGranted) {
-          // User tapped Allow -> open the gate and render the app
-          setIsGranted(true);
+          const allGranted =
+            granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN] === PermissionsAndroid.RESULTS.GRANTED &&
+            granted[PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT] === PermissionsAndroid.RESULTS.GRANTED;
+
+          if (allGranted) {
+            setIsGranted(true);
+          } else {
+            console.warn('Android: Bluetooth permissions denied');
+          }
         } else {
-          // User tapped Deny -> stay on gate screen so they can retry
-          console.warn('Android: Bluetooth permissions denied');
+          // Android < 31 (e.g. Android 9 on Lenovo Tablet): Bluetooth requires Location permission
+          const hasLocation = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+          if (hasLocation) {
+            setIsGranted(true);
+            setIsChecking(false);
+            return;
+          }
+
+          const granted = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+          ]);
+
+          const allGranted =
+            granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ||
+            granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+
+          if (allGranted) {
+            setIsGranted(true);
+          } else {
+            console.warn('Android: Location permission denied');
+          }
         }
       } catch (err) {
         console.warn('Android Permission Error:', err);
