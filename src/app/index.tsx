@@ -48,13 +48,17 @@ export default function ChatScreen() {
    * Wrapped in useCallback so React keeps the same function reference unless activePeerId changes.
    */
   const loadMessages = useCallback(async () => {
-    // Fetch all messages for this room/peer from SQLite (ordered newest first)
-    const storedMessages = await getMessagesForPeer(activePeerId);
-    setMessages(storedMessages);
-
-    // Directly read the current radio state and discovered peer count from MeshService (added in Step 1)
-    setRadioState(MeshService.getRadioStatus());
-    setPeerCount(MeshService.getDiscoveredPeers().length);
+    try {
+      // Fetch all messages for this room/peer from SQLite (ordered newest first)
+      const storedMessages = await getMessagesForPeer(activePeerId);
+      setMessages(storedMessages);
+    } catch (err) {
+      console.warn('[ChatScreen] Error loading messages from SQLite:', err);
+    } finally {
+      // Directly read the current radio state and discovered peer count from MeshService
+      setRadioState(MeshService.getRadioStatus());
+      setPeerCount(MeshService.getDiscoveredPeers().length);
+    }
   }, [activePeerId]);
 
   // useEffect runs when the screen opens to start MeshService and keep messages updated
@@ -83,16 +87,18 @@ export default function ChatScreen() {
 
   // Function called when the user taps the "Send" button
   const handleSend = async () => {
-    // Do nothing if the text box is empty or only contains spaces
     if (inputText.trim() === '') return;
-
-    // Send the message through MeshService (which saves to SQLite, encrypts with shared room key, and broadcasts over BLE)
-    await MeshService.sendMessage(activePeerId, inputText.trim(), 'me');
-
-    // Clear the input box and refresh the chat list
+    const textToSend = inputText.trim();
     setInputText('');
-    loadMessages();
+
+    try {
+      await MeshService.sendMessage(activePeerId, textToSend, 'me');
+      loadMessages();
+    } catch (err) {
+      console.error('[ChatScreen] Error sending message:', err);
+    }
   };
+
 
   /*
    * Helper function that returns the icon, text label, and colors for the top connection pill.

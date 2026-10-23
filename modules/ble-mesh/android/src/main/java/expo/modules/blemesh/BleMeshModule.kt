@@ -9,10 +9,26 @@ class BleMeshModule : Module() {
     appContext.reactContext?.let { context ->
       val manager = CentralManager(context)
       
-      // Kotlin lambda syntax for a single-method interface
-      manager.setListener { peerId ->
-        sendEvent("onDeviceDisconnected", mapOf("peerId" to peerId))
-      }
+      manager.setListener(object : CentralManager.CentralEventListener {
+        override fun onPeerDiscovered(peerId: String, rssi: Int) {
+          sendEvent("onPeerDiscovered", mapOf(
+            "peerId" to peerId,
+            "rssi" to rssi
+          ))
+        }
+
+        override fun onPeerConnected(peerId: String) {
+          sendEvent("onPeerConnected", mapOf("peerId" to peerId))
+        }
+
+        override fun onMessageReceived(base64Bytes: String) {
+          sendEvent("onRawData", mapOf("base64Bytes" to base64Bytes, "payload" to base64Bytes))
+        }
+
+        override fun onDeviceDisconnected(peerId: String) {
+          sendEvent("onDeviceDisconnected", mapOf("peerId" to peerId))
+        }
+      })
       
       manager
     }
@@ -22,10 +38,13 @@ class BleMeshModule : Module() {
     appContext.reactContext?.let { context ->
       val manager = PeripheralManager(context)
       
-      // Kotlin object syntax for a multi-method interface
       manager.setListener(object : PeripheralManager.MeshEventListener {
+        override fun onPeerConnected(peerId: String) {
+          sendEvent("onPeerConnected", mapOf("peerId" to peerId))
+        }
+
         override fun onMessageReceived(base64Bytes: String) {
-          sendEvent("onRawData", mapOf("payload" to base64Bytes))
+          sendEvent("onRawData", mapOf("base64Bytes" to base64Bytes, "payload" to base64Bytes))
         }
 
         override fun onDeviceDisconnected(peerId: String) {
@@ -40,7 +59,7 @@ class BleMeshModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("BleMesh")
 
-    Events("onRawData", "onDeviceDisconnected")
+    Events("onRawData", "onPeerDiscovered", "onPeerConnected", "onDeviceDisconnected")
 
     Function("startRadio") {
       centralManager?.startScanning()
@@ -53,7 +72,18 @@ class BleMeshModule : Module() {
     }
 
     Function("writeRaw") { peerId: String, base64Bytes: String ->
-      centralManager?.writeRawData(base64Bytes)
+      var sent = false
+      if (centralManager?.isConnected == true) {
+        centralManager?.writeRawData(base64Bytes)
+        sent = true
+      }
+      if (peripheralManager?.hasConnectedCentrals() == true) {
+        peripheralManager?.sendData(base64Bytes)
+        sent = true
+      }
+      if (!sent) {
+        centralManager?.writeRawData(base64Bytes)
+      }
     }
   }
 }

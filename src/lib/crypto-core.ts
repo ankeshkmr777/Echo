@@ -1,3 +1,18 @@
+if (typeof globalThis.crypto === 'undefined') {
+    (globalThis as any).crypto = {};
+}
+if (!globalThis.crypto.getRandomValues) {
+    globalThis.crypto.getRandomValues = function <T extends ArrayBufferView | null>(array: T): T {
+        if (!array) return array;
+        const uint8 = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+        for (let i = 0; i < uint8.length; i++) {
+            const r = (Math.random() * 0x100000000) ^ (Date.now() & 0xffffffff);
+            uint8[i] = (r >> ((i % 4) * 8)) & 0xff;
+        }
+        return array;
+    };
+}
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import {ed25519, x25519} from "@noble/curves/ed25519.js";
 import {sha256} from "@noble/hashes/sha2.js";
@@ -26,16 +41,20 @@ export interface DecryptedDirectMessage {
 }
 
 export async function getOrCreateIdentity() : Promise<IdentityKeyPair> {
-    let seedHex = await SecureStore.getItemAsync(SEED_STORAGE_KEY);
     let seed: Uint8Array;
 
-    if (seedHex) {
-        seed = hexToBytes(seedHex);
-    } else {
+    try {
+        const seedHex= await SecureStore.getItemAsync(SEED_STORAGE_KEY);
+        if (seedHex) {
+            seed = hexToBytes(seedHex);
+        } else {
+            seed = crypto.getRandomValues(new Uint8Array(32));
+            const options = Platform.OS === 'ios' ? {keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY} : undefined;
+            await SecureStore.setItemAsync(SEED_STORAGE_KEY, bytesToHex(seed), options);
+        }
+    } catch (error) {
+        console.warn('Secure store unavailable, generating ephemeral identity for this session only.', error);
         seed = crypto.getRandomValues(new Uint8Array(32));
-        await SecureStore.setItemAsync(SEED_STORAGE_KEY, bytesToHex(seed), {
-            keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-        });
     }
 
     const edPublic = ed25519.getPublicKey(seed);

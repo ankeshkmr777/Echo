@@ -20,7 +20,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
 }
 
 export function base64ToBytes(b64: string): Uint8Array {
-    const clean = b64.replace(/=+$/, '');
+    const clean = b64.replace(/[\r\n\s]/g, '').replace(/=+$/, '');
     const len = clean.length;
     const bytesLen = Math.floor((len * 3) / 4);
     const bytes = new Uint8Array(bytesLen);

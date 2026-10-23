@@ -12,7 +12,7 @@ import {
 } from './crypto-core';
 import { EnvelopeDispatcher, ITransport } from './dispatcher';
 import { EnvelopeType, packEnvelope, unpackEnvelope } from './protocol';
-import { insertMessage, MessageRecord } from './store';
+import { insertMessage, updateMessageStatus, MessageRecord } from './store';
 
 // Type representing the live state of the Bluetooth radio
 // Why required: Solves Problem D by letting index.tsx and discover.tsx know if radio is scanning, connecting, connected, or off
@@ -84,9 +84,12 @@ class MasterMeshService {
 
     console.log('[MeshService] Initializing...');
     // 1. Load or create our Ed25519/X25519 identity keys
-    this.identity = await getOrCreateIdentity();
-    console.log('[MeshService] Identity loaded. Public ID:', this.identity.publicId);
-
+    try {
+      this.identity = await getOrCreateIdentity();
+      console.log('[MeshService] Identity loaded. Public ID:', this.identity.publicId);
+    } catch (err) {
+      console.error('[MeshService] Error loading identity:', err);
+    }
     // 2. Connect Dev 3's ITransport interface (send & on) to Dev 1's BleMeshModule
     const transportBridge: ITransport = {
       send: (bytes: Uint8Array) => {
@@ -103,12 +106,14 @@ class MasterMeshService {
           // Listen for incoming raw Bluetooth data from nearby phones
           BleMeshModule.addListener(
             'onRawData',
-            (evt: { peerId: string; base64Bytes: string }) => {
+            (evt: { peerId?: string; base64Bytes?: string; payload?: string }) => {
+              const b64 = evt.base64Bytes || evt.payload;
+              if (!b64) return;
               if (evt.peerId) {
                 // Mark this phone as a connected Direct Peer in our UI list
                 this.recordPeerSeen(evt.peerId, 'Direct Peer');
               }
-              const raw = base64ToBytes(evt.base64Bytes);
+              const raw = base64ToBytes(b64);
               callback(raw);
             }
           );
@@ -180,6 +185,11 @@ class MasterMeshService {
           const id = evt.peerId || evt.id;
           if (id) {
             this.discoveredPeers.delete(id);
+            if (/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(id)) {
+              if (this.discoveredPeers.size <= 1) {
+                this.discoveredPeers.clear();
+              }
+            }
           }
           this.radioStatus =
             this.discoveredPeers.size > 0 ? 'connected' : 'scanning';
@@ -198,6 +208,28 @@ class MasterMeshService {
     rssi?: number,
     customTag?: string
   ): void {
+    const isMacAddress = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(peerId);
+
+    // If this is a MAC address, but we already have a direct peer with a real public ID,
+    // don't create a duplicate ghost peer, but ensure status remains 'connected'.
+    if (isMacAddress) {
+      const hasRealPeer = Array.from(this.discoveredPeers.keys()).some(
+        (id) => !/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(id)
+      );
+      if (hasRealPeer) {
+        this.radioStatus = 'connected';
+        this.notifyListeners();
+        return;
+      }
+    } else {
+      // If we just learned a real public ID, remove any raw MAC-only placeholder peers
+      for (const key of this.discoveredPeers.keys()) {
+        if (/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/.test(key)) {
+          this.discoveredPeers.delete(key);
+        }
+      }
+    }
+
     const shortId = peerId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
     const tag = customTag || `Node #${shortId || 'PEER'}`;
 
@@ -255,6 +287,10 @@ class MasterMeshService {
 
     // 4. Send envelope to Dev 3's dispatcher to transmit over BLE
     this.dispatcher?.dispatchOutgoing(envelopeBytes);
+
+    // Update status to 'relayed' now that the radio has transmitted the packet
+    await updateMessageStatus(messageId, 'relayed');
+    newMessage.status = 'relayed';
     this.notifyListeners();
     return newMessage;
   }
@@ -312,7 +348,11 @@ class MasterMeshService {
       };
 
       // 3. Save decrypted message to SQLite and trigger UI refresh
-      await insertMessage(incomingMessage);
+      try {
+        await insertMessage(incomingMessage);
+      } catch (insertErr) {
+        console.error('[MeshService] Error inserting incoming message:', insertErr);
+      }
       this.notifyListeners();
     } catch (err) {
       console.warn('[MeshService] Decryption or verification dropped packet:', err);
