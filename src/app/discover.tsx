@@ -7,13 +7,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DiscoveredPeer, MeshService, RadioStatus } from '../lib/MeshService';
+import { getDisplayName, saveDisplayName } from '../lib/store';
 
-// Helper function to translate raw dBm into visual signal bars (Issue 11)
+// Helper function to translate raw dBm into visual signal bars
 const getSignalBars = (rssi: number) => {
   if (rssi >= -60) return '📶 Strong';
   if (rssi >= -75) return '📶 Good';
@@ -27,13 +29,26 @@ export default function DiscoverScreen() {
   const [radioState, setRadioState] = useState<RadioStatus>('scanning');
   const [peers, setPeers] = useState<DiscoveredPeer[]>([]);
   const [isPulsing, setIsPulsing] = useState(false);
+  const [nodeId, setNodeId] = useState<string>('Initializing...');
+  
+  // New state for Display Name
+  const [displayName, setDisplayName] = useState('Anonymous');
+  const [editName, setEditName] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
   const syncMeshState = useCallback(() => {
     setRadioState(MeshService.getRadioStatus());
     setPeers(MeshService.getDiscoveredPeers());
+    setNodeId(MeshService.getMyNodeId());
   }, []);
 
   useEffect(() => {
+    // Load the saved display name on launch
+    getDisplayName().then((name) => {
+      setDisplayName(name);
+      setEditName(name);
+    });
+
     MeshService.initialize().then(() => {
       syncMeshState();
     });
@@ -59,6 +74,15 @@ export default function DiscoverScreen() {
 
   const openChatWithPeer = (peerId: string) => {
     router.push({ pathname: '/', params: { peer: peerId } });
+  };
+
+  // Save the display name to SQLite
+  const handleSaveName = async () => {
+    if (editName.trim()) {
+      await saveDisplayName(editName);
+      setDisplayName(editName.trim());
+    }
+    setIsEditing(false);
   };
 
   const getStatusBanner = () => {
@@ -100,7 +124,6 @@ export default function DiscoverScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
       >
-        {/* TOP TITLE ROW (Duplicate Scan Button Removed - Issue 9) */}
         <View style={styles.headerRow}>
           <Text style={styles.screenTitle}>Discover</Text>
         </View>
@@ -123,8 +146,6 @@ export default function DiscoverScreen() {
               </Text>
             </View>
           </View>
-
-          {/* Jargon-free Notice */}
           <View style={styles.helperNoticeBox}>
             <Text style={styles.helperNoticeText}>
               ⚠️ Offline Chat requires both Bluetooth and Location turned ON in your phone settings.
@@ -132,9 +153,37 @@ export default function DiscoverScreen() {
           </View>
         </View>
 
-        {/* Node ID Card was successfully removed to hide clutter (Issue 12) */}
+        {/* 2. MY PROFILE CARD */}
+        <View style={styles.card}>
+          <Text style={styles.cardSectionTitle}>My Profile</Text>
+          {isEditing ? (
+            <View style={styles.editNameRow}>
+              <TextInput
+                style={styles.nameInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Enter display name"
+                maxLength={20}
+                autoFocus={true}
+              />
+              <TouchableOpacity style={styles.primaryActionBtn} onPress={handleSaveName}>
+                <Text style={styles.primaryActionBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.identityRow}>
+              <View style={styles.idBadge}>
+                <Text style={styles.idBadgeText}>{displayName}</Text>
+              </View>
+              <TouchableOpacity style={styles.secondaryActionBtn} onPress={() => setIsEditing(true)}>
+                <Text style={styles.secondaryActionBtnText}>Edit Name</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          <Text style={styles.nodeIdHint}>Hardware ID: {nodeId.length > 8 ? `${nodeId.slice(0, 8)}...` : nodeId}</Text>
+        </View>
 
-        {/* 2. "NEARBY MESH PEERS" (Live Device List) */}
+        {/* 3. "NEARBY MESH PEERS" */}
         <View style={styles.card}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.cardSectionTitle}>Nearby Devices</Text>
@@ -155,17 +204,15 @@ export default function DiscoverScreen() {
                   <Text style={styles.peerTagText}>{peer.tag}</Text>
                   <Text style={styles.peerStatusText}>
                     {peer.status}
-                    {/* Visual Signal Bars instead of raw dBm (Issue 11) */}
                     {typeof peer.rssi === 'number' ? `\n${getSignalBars(peer.rssi)}` : ''}
                   </Text>
                 </View>
-                {/* Direct Message button successfully removed (Issue 4) */}
               </View>
             ))
           )}
         </View>
 
-        {/* 3. "CHANNELS & BROADCAST ROOMS" SECTION */}
+        {/* 4. CHANNELS & BROADCAST ROOMS */}
         <View style={styles.card}>
           <Text style={styles.cardSectionTitle}>Channels & Broadcast Rooms</Text>
 
@@ -187,7 +234,7 @@ export default function DiscoverScreen() {
         </View>
       </ScrollView>
 
-      {/* 4. FLOATING ACTION / SCAN BUTTON */}
+      {/* 5. FLOATING SCAN BUTTON */}
       <TouchableOpacity
         style={styles.fabScanButton}
         onPress={handleManualScan}
@@ -202,181 +249,46 @@ export default function DiscoverScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    padding: 16,
-    paddingBottom: 100,
-    gap: 16,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  statusCard: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 14,
-    gap: 12,
-  },
-  statusHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  statusEmoji: {
-    fontSize: 22,
-  },
-  statusTextColumn: {
-    flex: 1,
-  },
-  statusTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  statusSubtitle: {
-    fontSize: 13,
-    marginTop: 2,
-  },
-  helperNoticeBox: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-  },
-  helperNoticeText: {
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 17,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 12,
-  },
-  cardSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  peerCounterText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  emptyStateBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  emptyStateText: {
-    fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  peerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  peerInfo: {
-    flex: 1,
-  },
-  peerTagText: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  peerStatusText: {
-    fontSize: 12,
-    color: '#059669',
-    marginTop: 2,
-  },
-  channelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  channelInfo: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  channelName: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  channelDesc: {
-    fontSize: 12,
-    color: '#4B5563',
-    marginTop: 2,
-  },
-  channelStatus: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#15803D',
-    marginTop: 4,
-  },
-  openChannelBadge: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  openChannelBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  fabScanButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 24,
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 28,
-    elevation: 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  fabScanButtonText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
+  safeArea: { flex: 1, backgroundColor: '#F3F4F6' },
+  scrollView: { flex: 1 },
+  contentContainer: { padding: 16, paddingBottom: 100, gap: 16 },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  screenTitle: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
+  statusCard: { borderWidth: 1, borderRadius: 14, padding: 14, gap: 12 },
+  statusHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusEmoji: { fontSize: 22 },
+  statusTextColumn: { flex: 1 },
+  statusTitle: { fontSize: 16, fontWeight: 'bold' },
+  statusSubtitle: { fontSize: 13, marginTop: 2 },
+  helperNoticeBox: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A', borderWidth: 1, borderRadius: 10, padding: 10 },
+  helperNoticeText: { fontSize: 12, color: '#92400E', lineHeight: 17 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E5E7EB', gap: 12 },
+  cardSectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#111827' },
+  identityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  editNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  nameInput: { flex: 1, backgroundColor: '#F3F4F6', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 15, borderWidth: 1, borderColor: '#D1D5DB' },
+  idBadge: { backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB' },
+  idBadgeText: { fontSize: 15, fontWeight: 'bold', color: '#1F2937' },
+  nodeIdHint: { fontSize: 11, color: '#6B7280', marginTop: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  primaryActionBtn: { backgroundColor: '#007AFF', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
+  primaryActionBtnText: { color: '#FFFFFF', fontWeight: '600', fontSize: 13 },
+  secondaryActionBtn: { backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#BFDBFE' },
+  secondaryActionBtnText: { color: '#1D4ED8', fontWeight: '600', fontSize: 13 },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  peerCounterText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  emptyStateBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 24, paddingHorizontal: 16, gap: 12 },
+  emptyStateText: { fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 19 },
+  peerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  peerInfo: { flex: 1 },
+  peerTagText: { fontSize: 15, fontWeight: 'bold', color: '#111827' },
+  peerStatusText: { fontSize: 12, color: '#059669', marginTop: 2 },
+  channelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F9FAFB', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB' },
+  channelInfo: { flex: 1, paddingRight: 8 },
+  channelName: { fontSize: 15, fontWeight: 'bold', color: '#111827' },
+  channelDesc: { fontSize: 12, color: '#4B5563', marginTop: 2 },
+  channelStatus: { fontSize: 12, fontWeight: '600', color: '#15803D', marginTop: 4 },
+  openChannelBadge: { backgroundColor: '#007AFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14 },
+  openChannelBadgeText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
+  fabScanButton: { position: 'absolute', right: 20, bottom: 24, backgroundColor: '#007AFF', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 28, elevation: 4, shadowColor: '#000000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+  fabScanButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
 });
