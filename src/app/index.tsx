@@ -161,13 +161,13 @@ export default function ChatScreen() {
           {item.content}
         </Text>
 
-        {/* Message time (e.g. 06:45 PM) and delivery status tick ('pending' | 'relayed' | 'delivered') */}
+        {/* Message time and delivery status ticks */}
         <Text style={[styles.timestamp, !isMe && styles.peerTimestamp]}>
           {new Date(item.timestamp).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
           })}
-          {isMe && ` • ${item.status}`}
+          {isMe && (item.status === 'pending' ? ' ✓' : ' ✓✓')}
         </Text>
       </View>
     );
@@ -196,11 +196,11 @@ export default function ChatScreen() {
             </View>
           </View>
 
-          {/* Security notice banner reminding user that #global_mesh_room uses a shared channel key */}
+          {/* Security notice banner */}
           {isPublicRoom && (
             <View style={styles.securityBanner}>
               <Text style={styles.securityBannerText}>
-                ⚠️ Public Mesh Channel • Shared channel key with Ed25519 sender verification
+                ⚠️ Public Room • Anyone nearby can see these messages
               </Text>
             </View>
           )}
